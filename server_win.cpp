@@ -41,14 +41,14 @@ main(void)
 	while (1)
 	{
 		res = berasn1_accept(&newconn, &conn);
+		if (res)
+		{
+			fprintf(stderr, "Failed to accept, stop\n");
+			exit(EXIT_FAILURE);
+		}
 		while (1)
 		{
 			ssize_t res;
-			if (res)
-			{
-				fprintf(stderr, "Failed to bind, stop\n");
-				exit(EXIT_FAILURE);
-			}
 			res = berasn1_recv(&newconn, buf, BUFFER_SIZE);
 			if (!res)
 				break;
