@@ -18,6 +18,10 @@ typedef SSIZE_T ssize_t;
 
 
 
+/*
+ * This structure is analogous to file descriptor.
+ */
+
 struct berasn1_conn
 {
 	byte len[BIGLEN_LEN]; // big-endian
@@ -57,8 +61,10 @@ berasn1_connect(
 
 
 
-// NOTE(toideng): these functions create a half-duplex channel; one cannot send
-//                while receiving
+/* NOTE(toideng):
+ * This pair of function emulates a half-duplex channel. It is an error to send
+ * data while there is still data to be received in the current frame.
+ */
 
 ssize_t
 berasn1_recv(
