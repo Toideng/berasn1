@@ -206,7 +206,7 @@ recv_berasn1_len(
 	memset(conn->len, 0, BIGLEN_LEN);
 	byte hdr;
 
-	res = recv(conn->sockfd, &hdr, 1, 0);
+	res = recv(conn->sockfd, (char*)&hdr, 1, 0);
 	if (res == 0)
 	{
 		// blocking call to recv only returns 0 when connection was
@@ -233,7 +233,7 @@ recv_berasn1_len(
 
 	while (left)
 	{
-		res = recv(conn->sockfd, p, left, 0);
+		res = recv(conn->sockfd, (char*)p, left, 0);
 		if (res == 0)
 		{
 			// Abrupt connection reset
@@ -366,7 +366,7 @@ berasn1_recv(
 	
 	while (len)
 	{
-		ssize_t res = recv(conn->sockfd, dst, (int)len, 0);
+		ssize_t res = recv(conn->sockfd, (char*)dst, (int)len, 0);
 		if (res <= 0)
 		{
 			fprintf(stderr, "failed to recv\n");
