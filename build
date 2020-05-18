@@ -6,7 +6,7 @@ recognized=0
 
 
 
-if [[ ($# -lt 1) ]]
+if [[ ($# -lt 1) || (($# -eq 1)  &&  ($1 == "all")) ]]
 then
 	recognized=1
 	./build client
