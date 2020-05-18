@@ -3,6 +3,12 @@
 
 #include "xtypes.hpp"
 
+#ifdef TARGET_WIN32
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
+
 
 
 #define BIGLEN_LEN 128
@@ -15,7 +21,7 @@ struct berasn1_conn
 	int is_receiving;
 
 #ifdef TARGET_WIN32
-#error "Win32 is not supported yet"
+	SOCKET sockfd;
 #endif
 
 #ifdef TARGET_LINUX

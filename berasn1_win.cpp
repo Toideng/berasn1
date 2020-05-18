@@ -1,13 +1,20 @@
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
+#define WIN32_LEAN_AND_MEAN
 
-#include <unistd.h>
-#include <string.h>
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 #include "berasn1.hpp"
 #include "xtypes.hpp"
+
+
+
+// Need to link with Ws2_32.lib, Mswsock.lib, and Advapi32.lib
+#pragma comment (lib, "Ws2_32.lib")
+#pragma comment (lib, "Mswsock.lib")
+#pragma comment (lib, "AdvApi32.lib")
 
 
 
@@ -24,70 +31,60 @@ berasn1_bind_listen(
 	char *port
 	)
 {
-	int res;
-
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
 	hints.ai_flags = AI_PASSIVE;
 
 	struct addrinfo *servinfo;
 	res = getaddrinfo(0, port, &hints, &servinfo);
 	if (res)
 	{
-		fprintf(stderr, "getaddrinfo: %s\xa", gai_strerror(res));
-		return -1;
+		fprintf(stderr, "getaddrinfo failed with error: %d\n", res);
+		return 1;
 	}
 
-	int listenfd;
-	struct addrinfo *p;
-	for (p = servinfo;  p;  p = p->ai_next)
+	SOCKET listenfd;
+	listenfd = socket(
+		servinfo->ai_family,
+		servinfo->ai_socktype,
+		servinfo->ai_protocol);
+
+	if (listenfd == INVALID_SOCKET)
 	{
-		listenfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-		if (listenfd == -1)
-		{
-			perror("socket");
-			continue;
-		}
+		fprintf(stderr, "socket failed with error: %ld\n", WSAGetLastError());
+		freeaddrinfo(servinfo);
+		return 1;
+	}
 
-		int yes = 1;
-		if (setsockopt(listenfd,
-		               SOL_SOCKET,
-		               SO_REUSEADDR,
-		               &yes,
-		               sizeof(int)) == -1)
-		{
-			perror("setsockopt");
-			return -1;
-		}
+	// Setup the TCP listening socket
+	res = bind(
+		listenfd,
+		servinfo->ai_addr,
+		(int)servinfo->ai_addrlen);
 
-		if (bind(listenfd, p->ai_addr, p->ai_addrlen) == -1)
-		{
-			close(listenfd);
-			perror("bind");
-			continue;
-		}
-
-		break;
+	if (res == SOCKET_ERROR)
+	{
+		fprintf(stderr, "bind failed with error: %d\n", WSAGetLastError());
+		freeaddrinfo(servinfo);
+		closesocket(listenfd);
+		return 1;
 	}
 
 	freeaddrinfo(servinfo);
 
-	if (!p)
+	res = listen(listenfd, SOMAXCONN);
+	if (res == SOCKET_ERROR)
 	{
-		fprintf(stderr, "failed to bind\xa");
-		return -1;
-	}
-
-	if (listen(listenfd, 10) == -1)
-	{
-		perror("listen");
-		return -1;
+		fprintf(stderr, "listen failed with error: %d\n", WSAGetLastError());
+		closesocket(listenfd);
+		return 1;
 	}
 
 	memset(conn, 0, sizeof *conn);
-	conn->fd = listenfd;
+	conn->sockfd = listenfd;
 
 	return 0;
 }
@@ -107,22 +104,15 @@ berasn1_accept(
 	struct berasn1_conn *listen_conn
 	)
 {
-	struct sockaddr_storage inbound_addr;
-	socklen_t sin_size;
-	int inbound_fd;
-
-	sin_size = sizeof inbound_addr;
-	inbound_fd = accept(listen_conn->fd,
-	                    (struct sockaddr *)&inbound_addr,
-	                    &sin_size);
-	if (inbound_fd == -1)
+	SOCKET inbound_fd = accept(listen_conn->sockfd, 0, 0);
+	if (inbound_fd == INVALID_SOCKET)
 	{
-		perror("accept");
-		return -1;
+		fprintf("accept failed with error: %d\n", WSAGetLastError());
+		return 1;
 	}
 
 	memset(new_conn, 0, sizeof *new_conn);
-	new_conn->fd = inbound_fd;
+	new_conn->sockfd = inbound_fd;
 
 	return 0;
 }
@@ -144,44 +134,43 @@ berasn1_connect(
 	)
 {
 	int res;
+
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
 
-	struct addrinfo *servinfo;
+	struct addrinfo servinfo;
 	res = getaddrinfo(host, port, &hints, &servinfo);
 	if (res)
 	{
-		fprintf(stderr, "getaddrinfo: %s\xa", gai_strerror(res));
-		return -1;
+		fprintf(stderr, "getaddrinfo failed with error: %d\n", res);
+		return 1;
 	}
 
-	int outbound_fd;
+	SOCKET outbound_fd;
 	struct addrinfo *p;
 	for (p = servinfo;  p;  p = p->ai_next)
 	{
 		outbound_fd = socket(p->ai_family,
 		                     p->ai_socktype,
 		                     p->ai_protocol);
-		if (outbound_fd == -1)
+		if (outbound_fd == INVALID_SOCKET)
 		{
-			perror("socket");
-			continue;
+			fprintf(stderr, "socket failed with error: %ld\n", WSAGetLastError());
+			return -1;
 		}
 
-		res = connect(outbound_fd, p->ai_addr, p->ai_addrlen);
-		if (res == -1)
+		res = connect(outbound_fd, p->ai_addr, (int)p->ai_addrlen);
+		if (res == SOCKET_ERROR)
 		{
-			close(outbound_fd);
-			perror("connect");
+			closesocket(outbound_fd);
 			continue;
 		}
 
 		break;
 	}
-
-	freeaddrinfo(servinfo);
 
 	if (!p)
 	{
@@ -189,8 +178,10 @@ berasn1_connect(
 		return -1;
 	}
 
+	freeaddrinfo(servinfo);
+
 	memset(conn, 0, sizeof *conn);
-	conn->fd = outbound_fd;
+	conn->sockfd = outbound_fd;
 
 	return 0;
 }
@@ -209,11 +200,11 @@ recv_berasn1_len(
 	struct berasn1_conn *conn
 	)
 {
-	ssize_t res;
+	int res;
 	memset(conn->len, 0, BIGLEN_LEN);
 	byte hdr;
 
-	res = recv(conn->fd, &hdr, 1, 0);
+	res = recv(conn->sockfd, &hdr, 1, 0);
 	if (res == 0)
 	{
 		// blocking call to recv only returns 0 when connection was
@@ -223,7 +214,7 @@ recv_berasn1_len(
 	}
 	else if (res < 0)
 	{
-		perror("recv");
+		fprintf(stderr, "failed to recv\xa");
 		return -1;
 	}
 
@@ -233,14 +224,14 @@ recv_berasn1_len(
 		return 1;
 	}
 
-	size_t left = (size_t)(hdr & 0x7f);
+	int left = (int)(hdr & 0x7f);
 
 	byte *p = conn->len;
 	p += (BIGLEN_LEN - left);
 
 	while (left)
 	{
-		res = recv(conn->fd, p, left, 0);
+		res = recv(conn->sockfd, p, left, 0);
 		if (res == 0)
 		{
 			// Abrupt connection reset
@@ -373,10 +364,10 @@ berasn1_recv(
 	
 	while (len)
 	{
-		ssize_t res = recv(conn->fd, dst, len, 0);
+		ssize_t res = recv(conn->sockfd, dst, (int)len, 0);
 		if (res <= 0)
 		{
-			perror("recv");
+			fprintf(stderr, "failed to recv\n");
 			return -1;
 		}
 
@@ -414,7 +405,7 @@ send_berasn1_len(
 	if (len <= 0x7f)
 	{
 		hdr = (byte)len;
-		ssize_t res = send(conn->fd, &hdr, 1, 0);
+		ssize_t res = send(conn->sockfd, &hdr, 1, 0);
 		if (res == 0)
 			return 0;
 		if (res < 0)
@@ -442,7 +433,7 @@ send_berasn1_len(
 	byte *end = src + x + 1;
 	while (src < end)
 	{
-		ssize_t res = send(conn->fd, src, end - src, 0);
+		ssize_t res = send(conn->sockfd, src, (int)(end - src), 0);
 		if (res == 0)
 			return 0;
 		if (res < 0)
@@ -479,7 +470,7 @@ berasn1_send(
 	size_t sent = 0;
 	while (len)
 	{
-		ssize_t res = send(conn->fd, src, len, 0);
+		ssize_t res = send(conn->sockfd, src, (int)len, 0);
 		if (res <= 0)
 			return -1;
 
@@ -505,9 +496,8 @@ berasn1_close(
 	struct berasn1_conn *conn
 	)
 {
-	int res = 0;
-	if (conn->fd)
-		res = close(conn->fd);
+	if (conn->sockfd)
+		closesocket(conn->sockfd);
 	memset(conn, 0, sizeof *conn);
-	return res;
+	return 0;
 }
