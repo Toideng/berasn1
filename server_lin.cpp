@@ -61,7 +61,7 @@ main(void)
 	while (1)
 	{
 		struct berasn1_conn newconn;
-		res = berasn1_accept(&conn, &newconn);
+		res = berasn1_accept(&newconn, &conn);
 
 		// NOTE(toideng): This approach is a humongous security hole and
 		//                can easily be used to perform a variety of DOS

@@ -86,8 +86,8 @@ berasn1_bind_listen(
 		return -1;
 	}
 
+	memset(conn, 0, sizeof *conn);
 	conn->fd = listenfd;
-	memset(conn->len, 0, 128);
 
 	return 0;
 }
@@ -103,8 +103,8 @@ berasn1_bind_listen(
 
 int
 berasn1_accept(
-	struct berasn1_conn *listen_conn,
-	struct berasn1_conn *new_conn
+	struct berasn1_conn *new_conn,
+	struct berasn1_conn *listen_conn
 	)
 {
 	struct sockaddr_storage inbound_addr;
@@ -121,8 +121,8 @@ berasn1_accept(
 		return -1;
 	}
 
+	memset(new_conn, 0, sizeof *new_conn);
 	new_conn->fd = inbound_fd;
-	memset(new_conn->len, 0, 128);
 
 	return 0;
 }
@@ -187,8 +187,8 @@ berasn1_connect(
 		return -1;
 	}
 
+	memset(conn, 0, sizeof *conn);
 	conn->fd = outbound_fd;
-	memset(conn->len, 0, 128);
 
 	return 0;
 }
@@ -208,7 +208,7 @@ recv_berasn1_len(
 	)
 {
 	ssize_t res;
-	memset(conn->len, 0, 128);
+	memset(conn->len, 0, BIGLEN_LEN);
 	byte hdr;
 
 	res = recv(conn->fd, &hdr, 1, 0);
@@ -227,14 +227,14 @@ recv_berasn1_len(
 
 	if (!(hdr & 0x80))
 	{
-		conn->len[128 - 1] = hdr;
+		conn->len[BIGLEN_LEN - 1] = hdr;
 		return 1;
 	}
 
 	size_t left = (size_t)(hdr & 0x7f);
 
 	byte *p = conn->len;
-	p += (128 - left);
+	p += (BIGLEN_LEN - left);
 
 	while (left)
 	{
@@ -255,17 +255,16 @@ recv_berasn1_len(
 }
 
 
-// TODO: use NASM- and stdlib-style order of arguments: func(dst, src)
 // Generate biglen from size_t
 void
 biglen_from_size_t(
-	size_t in,
-	byte out[128]
+	byte out[BIGLEN_LEN],
+	size_t in
 	)
 {
-	memset(out, 0, 128);
+	memset(out, 0, BIGLEN_LEN);
 	for (size_t i = 0;  i < sizeof i;  i++)
-		out[128 - i - 1] = ((in >> (i * 8))) & 0xff;
+		out[BIGLEN_LEN - i - 1] = ((in >> (i * 8))) & 0xff;
 	return;
 }
 
@@ -273,29 +272,29 @@ biglen_from_size_t(
 // If [in] cannot fit in size_t, returns 0
 size_t
 biglen_to_size_t(
-	byte in[128]
+	byte in[BIGLEN_LEN]
 	)
 {
-	for (size_t i = sizeof i;  i < 128;  i++)
-		if (in[128 - i - 1])
+	for (size_t i = sizeof i;  i < BIGLEN_LEN;  i++)
+		if (in[BIGLEN_LEN - i - 1])
 			return 0;
 	size_t result = 0;
 	for (size_t i = 0;  i < sizeof i;  i++)
-		result |= ((size_t)(in[128 - i - 1])) << (i * 8);
+		result |= ((size_t)(in[BIGLEN_LEN - i - 1])) << (i * 8);
 	return result;
 }
 
 // Select and return the minimum of two values.
 size_t
 biglen_min_size_t(
-	byte biglen[128],
+	byte biglen[BIGLEN_LEN],
 	size_t len
 	)
 {
-	byte len_be[128];
-	biglen_from_size_t(len, len_be);
+	byte len_be[BIGLEN_LEN];
+	biglen_from_size_t(len_be, len);
 
-	if (memcmp(len_be, biglen, 128) <= 0)
+	if (memcmp(len_be, biglen, BIGLEN_LEN) <= 0)
 		return len;
 	else
 		return biglen_to_size_t(biglen);
@@ -305,22 +304,22 @@ biglen_min_size_t(
 // Returns 0 if [biglen] was reduced to zero, 1 otherwise
 int
 biglen_decrease(
-	byte biglen[128],
+	byte biglen[BIGLEN_LEN],
 	size_t decr
 	)
 {
 	if (biglen_min_size_t(biglen, decr) < decr)
 	{
-		memset(biglen, 0, 128);
+		memset(biglen, 0, BIGLEN_LEN);
 		return 0;
 	}
 
-	byte bigdecr[128];
-	biglen_from_size_t(decr, bigdecr);
+	byte bigdecr[BIGLEN_LEN];
+	biglen_from_size_t(bigdecr, decr);
 	int res_zero = 1;
 	size_t carry = 0;
 
-	for (ssize_t i = 128 - 1;  i >= 0;  i--)
+	for (ssize_t i = BIGLEN_LEN - 1;  i >= 0;  i--)
 	{
 		if (biglen[i] < carry + bigdecr[i])
 		{
@@ -354,54 +353,48 @@ berasn1_recv(
 {
 	byte *dst = (byte*)pdst;
 	size_t recved = 0;
-	fprintf(stderr, "Enter [berasn1_recv]\xa");
 
-	// [len] can be more than one frame holds, thus the loop
+	if (!conn->is_receiving)
+	{
+		int res = recv_berasn1_len(conn);
+		if (res == -1)
+			return -1;
+		if (res == 0)
+			return 0;
+		conn->is_receiving = 1;
+	}
+
+	len = biglen_min_size_t(conn->len, len);
+	
 	while (len)
 	{
-		// if new frame is to be expected, read [len] and setup [conn]
-		if (!conn->in_message)
-		{
-			fprintf(stderr, "berasn1_recv: enter new frame\xa");
-			int res = recv_berasn1_len(conn);
-			if (res == -1)
-			{
-				fprintf(stderr, "berasn1_recv: failed to recv len\xa");
-				return -1;
-			}
-			if (res == 0)
-			{
-				fprintf(stderr, "berasn1_recv: connection was closed\xa");
-				return recved;
-			}
-			fprintf(stderr, "berasn1_recv: successfully recved len: %lu\xa", biglen_to_size_t(conn->len));
-			conn->in_message = 1;
-		}
-
-		// read until either current frame or [len] ends
-		size_t to_get = biglen_min_size_t(conn->len, len);
-		ssize_t res = recv(conn->fd, dst, to_get, 0);
+		ssize_t res = recv(conn->fd, dst, len, 0);
 		if (res <= 0)
 		{
-			fprintf(stderr, "berasn1_recv: failed to recv anything\xa");
 			perror("recv");
 			return -1;
 		}
-		fprintf(stderr, "berasn1_recv: recved some data\xa");
 
 		recved += (size_t)res;
 		len -= (size_t)res;
 		dst += (size_t)res;
 
-		if (biglen_decrease(conn->len, (size_t)len) == 0)
+		if (biglen_decrease(conn->len, (size_t)res) == 0)
 		{
-			conn->in_message = 0;
+			conn->is_receiving = 0;
 			break;
 		}
 	}
 
 	return (ssize_t)recved;
 }
+
+
+
+
+
+
+
 
 
 
@@ -428,20 +421,20 @@ send_berasn1_len(
 	byte preamble[0x10];
 	hdr = 0x80;
 
-	size_t len1 = len;
-	while (len1)
+	size_t x = len;
+	while (x)
 	{
 		hdr++;
-		len1 >>= 8;
+		x >>= 8;
 	}
-	len1 = hdr & 0x7f;
+	x = hdr & 0x7f;
 
 	preamble[0] = hdr;
-	for (size_t i = 1;  i <= len1;  i++)
-		preamble[i] = (len >> ((len1 - i) * 8)) & 0xff;
+	for (size_t i = 1;  i <= x;  i++)
+		preamble[i] = (len >> ((x - i) * 8)) & 0xff;
 
 	byte *src = preamble;
-	byte *end = src + len1 + 1;
+	byte *end = src + x + 1;
 	while (src < end)
 	{
 		ssize_t res = send(conn->fd, src, end - src, 0);
@@ -465,8 +458,10 @@ berasn1_send(
 	size_t len
 	)
 {
+	if (conn->is_receiving)
+		return -1;
+
 	byte *src = (byte*)psrc;
-	size_t sent = 0;
 
 	int res = send_berasn1_len(conn, len);
 	if (res == 0)
@@ -474,6 +469,7 @@ berasn1_send(
 	if (res < 0)
 		return -1;
 
+	size_t sent = 0;
 	while (len)
 	{
 		ssize_t res = send(conn->fd, src, len, 0);

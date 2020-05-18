@@ -5,10 +5,14 @@
 
 
 
+#define BIGLEN_LEN 128
+
+
+
 struct berasn1_conn
 {
-	byte len[128]; // big-endian
-	int in_message; // set to 0 if connection is waiting for a new message.
+	byte len[BIGLEN_LEN]; // big-endian
+	int is_receiving;
 
 #ifdef TARGET_WIN32
 #error "Win32 is not supported yet"
@@ -29,8 +33,8 @@ berasn1_bind_listen(
 
 int
 berasn1_accept(
-	struct berasn1_conn *listen_conn,
-	struct berasn1_conn *new_conn
+	struct berasn1_conn *new_conn,
+	struct berasn1_conn *listen_conn
 );
 
 
@@ -44,7 +48,8 @@ berasn1_connect(
 
 
 
-// NOTE(toideng): these functions can deadlock if used improperly
+// NOTE(toideng): these functions create a half-duplex channel; one cannot send
+//                while receiving
 
 ssize_t
 berasn1_recv(

@@ -32,14 +32,20 @@ main(void)
 	while ((len = strlen((char const*)buf)))
 	{
 		ssize_t res;
-		res = berasn1_send(&conn, buf, len);
-		if (res < 0)
+		size_t off = 0;
+		while (off < len)
 		{
-			fprintf(stderr, "Failed to send\xa");
-			exit(EXIT_FAILURE);
+			res = berasn1_send(&conn, buf + off, len - off);
+			if (res < 0)
+			{
+				fprintf(stderr, "Failed to send\xa");
+				exit(EXIT_FAILURE);
+			}
+			if (res == 0)
+				goto end;
+
+			off += (size_t)res;
 		}
-		if (res == 0)
-			break;
 
 		res = berasn1_recv(&conn, buf, BUFFER_SIZE);
 		if (res < 0)
@@ -51,7 +57,10 @@ main(void)
 			break;
 		fwrite(buf, 1, (size_t)res, stdout);
 		printf("\xa");
+
+		fgets((char*)buf, BUFFER_SIZE, stdin);
 	}
+end:
 
 	berasn1_close(&conn);
 
