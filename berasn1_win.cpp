@@ -407,7 +407,7 @@ send_berasn1_len(
 	if (len <= 0x7f)
 	{
 		hdr = (byte)len;
-		ssize_t res = send(conn->sockfd, &hdr, 1, 0);
+		ssize_t res = send(conn->sockfd, (char*)&hdr, 1, 0);
 		if (res == 0)
 			return 0;
 		if (res < 0)
@@ -435,7 +435,7 @@ send_berasn1_len(
 	byte *end = src + x + 1;
 	while (src < end)
 	{
-		ssize_t res = send(conn->sockfd, src, (int)(end - src), 0);
+		ssize_t res = send(conn->sockfd, (char*)src, (int)(end - src), 0);
 		if (res == 0)
 			return 0;
 		if (res < 0)
@@ -472,7 +472,7 @@ berasn1_send(
 	size_t sent = 0;
 	while (len)
 	{
-		ssize_t res = send(conn->sockfd, src, (int)len, 0);
+		ssize_t res = send(conn->sockfd, (char*)src, (int)len, 0);
 		if (res <= 0)
 			return -1;
 
