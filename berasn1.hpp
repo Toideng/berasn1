@@ -4,7 +4,7 @@
 #include "xtypes.hpp"
 
 #ifdef TARGET_WIN32
-#include <windows.h>
+//#include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
