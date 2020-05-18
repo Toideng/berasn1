@@ -7,6 +7,9 @@
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
 #endif
 
 
