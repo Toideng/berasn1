@@ -64,7 +64,7 @@ main(void)
 				berasn1_close(&newconn);
 				exit(EXIT_FAILURE);
 			}
-			fprintf(stdout, "Got a %lu-byte long msg.\n", (size_t)res);
+			fprintf(stdout, "Got a %zu-byte long msg.\n", (size_t)res);
 
 			res = berasn1_send(&newconn, buf, (size_t)res);
 			if (!res)
