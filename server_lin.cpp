@@ -73,17 +73,18 @@ main(void)
 
 			while (1)
 			{
-				fprintf(stderr, "do recv\xa");
 				ssize_t res;
 				res = berasn1_recv(&newconn, buf, BUFFER_SIZE);
 				if (!res)
-				{
-					fprintf(stderr, "recv == 0\xa");
 					break;
-				}
 				if (res < 0)
 				{
-					fprintf(stderr, "recv < 0\xa");
+					berasn1_close(&newconn);
+					exit(EXIT_FAILURE);
+				}
+				if (newconn.is_receiving)
+				{
+					// Incoming message too large to handle
 					berasn1_close(&newconn);
 					exit(EXIT_FAILURE);
 				}

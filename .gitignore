@@ -1,3 +1,4 @@
+*.swp
 client
 client.exe
 server

@@ -27,10 +27,10 @@ main(void)
 		exit(EXIT_FAILURE);
 	}
 
-	fgets((char*)buf, BUFFER_SIZE, stdin);
-	size_t len;
-	while ((len = strlen((char const*)buf)))
+	while (!feof(stdin))
 	{
+		fgets((char*)buf, BUFFER_SIZE, stdin);
+		size_t len = strlen((char*)buf);
 		ssize_t res;
 		size_t off = 0;
 		while (off < len)
@@ -56,9 +56,6 @@ main(void)
 		if (res == 0)
 			break;
 		fwrite(buf, 1, (size_t)res, stdout);
-		printf("\xa");
-
-		fgets((char*)buf, BUFFER_SIZE, stdin);
 	}
 end:
 

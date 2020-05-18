@@ -351,6 +351,8 @@ berasn1_recv(
 	size_t len
 	)
 {
+	if (!len)
+		return -1;
 	byte *dst = (byte*)pdst;
 	size_t recved = 0;
 
@@ -459,6 +461,8 @@ berasn1_send(
 	)
 {
 	if (conn->is_receiving)
+		return -1;
+	if (!len)
 		return -1;
 
 	byte *src = (byte*)psrc;
