@@ -46,6 +46,7 @@ main(void)
 			fprintf(stderr, "Failed to accept, stop\n");
 			exit(EXIT_FAILURE);
 		}
+		fprintf(stdout, "Accepted a connection.\n");
 		while (1)
 		{
 			ssize_t res;
@@ -59,10 +60,11 @@ main(void)
 			}
 			if (newconn.is_receiving)
 			{
-				// Incoming message too large to handle
+				fprintf(stderr, "Incoming message too large to handle, stop\n");
 				berasn1_close(&newconn);
 				exit(EXIT_FAILURE);
 			}
+			fprintf(stdout, "Got a %lu-byte long msg.\n", (size_t)res);
 
 			res = berasn1_send(&newconn, buf, (size_t)res);
 			if (!res)
@@ -73,6 +75,7 @@ main(void)
 				exit(EXIT_FAILURE);
 			}
 		}
+		fprintf(stdout, "Dropped a connection.\n");
 
 		berasn1_close(&newconn);
 	}
