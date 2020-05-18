@@ -6,7 +6,6 @@ recognized=0
 
 
 
-#if [[ ($# -lt 1) || (($# -eq 1) && (($1 == "main") || ($1 == "debug"))) ]]
 if [[ ($# -lt 1) ]]
 then
 	recognized=1
