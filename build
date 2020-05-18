@@ -34,7 +34,6 @@ then
 		server_lin.cpp\
 		berasn1_lin.cpp\
 		-pedantic -Wall -Wextra\
-		-lm\
 		-o server
 	if [ $? != 0 ]
 	then
@@ -55,7 +54,6 @@ then
 		client_lin.cpp\
 		berasn1_lin.cpp\
 		-pedantic -Wall -Wextra\
-		-lm\
 		-o client
 	if [ $? != 0 ]
 	then
