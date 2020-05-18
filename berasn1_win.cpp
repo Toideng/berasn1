@@ -31,6 +31,8 @@ berasn1_bind_listen(
 	char *port
 	)
 {
+	int res;
+
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_INET;
@@ -107,7 +109,7 @@ berasn1_accept(
 	SOCKET inbound_fd = accept(listen_conn->sockfd, 0, 0);
 	if (inbound_fd == INVALID_SOCKET)
 	{
-		fprintf("accept failed with error: %d\n", WSAGetLastError());
+		fprintf(stderr, "accept failed with error: %d\n", WSAGetLastError());
 		return 1;
 	}
 
@@ -141,7 +143,7 @@ berasn1_connect(
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	struct addrinfo servinfo;
+	struct addrinfo *servinfo;
 	res = getaddrinfo(host, port, &hints, &servinfo);
 	if (res)
 	{
