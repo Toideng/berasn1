@@ -1,0 +1,82 @@
+#!/usr/bin/bash
+
+
+
+recognized=0
+
+
+
+#if [[ ($# -lt 1) || (($# -eq 1) && (($1 == "main") || ($1 == "debug"))) ]]
+if [[ ($# -lt 1) ]]
+then
+	recognized=1
+	./build client
+	if [ $? != 0 ]
+	then
+		echo "*** Failed to compile CLIENT, stop"
+		exit $?
+	fi
+	./build server
+	if [ $? != 0 ]
+	then
+		echo "*** Failed to compile SERVER, stop"
+		exit $?
+	fi
+	exit 0
+fi
+
+
+
+if [[ ($# -eq 1)  &&  ($1 == "server") ]]
+then
+	recognized=1
+	g++ -O3 -march=native\
+		-DTARGET_LINUX\
+		server_lin.cpp\
+		berasn1_lin.cpp\
+		-pedantic -Wall -Wextra\
+		-lm\
+		-o server
+	if [ $? != 0 ]
+	then
+		echo "*** Compilation failed, stop"
+		exit $?
+	fi
+	# Post-compilation commands...
+	exit 0
+fi
+
+
+
+if [[ ($# -eq 1)  &&  ($1 == "client") ]]
+then
+	recognized=1
+	g++ -O3 -march=native\
+		-DTARGET_LINUX\
+		client_lin.cpp\
+		berasn1_lin.cpp\
+		-pedantic -Wall -Wextra\
+		-lm\
+		-o client
+	if [ $? != 0 ]
+	then
+		echo "*** Compilation failed, stop"
+		exit $?
+	fi
+	# Post-compilation commands...
+	exit 0
+fi
+
+if [[ ($# -eq 1)  &&  ($1 == "clean") ]]
+then
+	recognized=1
+	rm client
+	rm server
+fi
+
+
+
+if [[ $recognized -ne 1 ]]
+then
+	echo "Argument not recognized, try again"
+fi
